@@ -7,14 +7,14 @@ from utils.image import apply_random_scale_and_crop, random_distort_image, rando
 
 class BatchGenerator(Sequence):
     def __init__(self, 
-        instances, 
-        anchors,   
-        labels,        
-        downsample=32, # ratio between network input's size and network output's size, 32 for YOLOv3
-        max_box_per_image=30,
+        instances,            # 训练样本，其结构参见 train.py 之 create_training_instances()
+        anchors,              # 先验框，[55,69, 75,234, 133,240, 136,129, 142,363, 203,290, 228,184, 285,359, 341,260]
+        labels,               # 通常就是config['model']['labels']，比如["raccoon"]；如果没有指定，则为样本图像中的所有对象。
+        downsample=32,        # ratio between network input's size and network output's size, 32 for YOLOv3
+        max_box_per_image=30, # 每张图像中最多有几个对象。是根据样本中的对象标注信息统计的来。
         batch_size=1,
-        min_net_size=320,
-        max_net_size=608,    
+        min_net_size=320,     # config['model']['min_input_size']，输入图像的最小尺寸（宽和高）
+        max_net_size=608,     # config['model']['max_input_size']，输入图像的最大尺寸（宽和高）
         shuffle=True, 
         jitter=True, 
         norm=None
@@ -29,7 +29,7 @@ class BatchGenerator(Sequence):
         self.shuffle            = shuffle
         self.jitter             = jitter
         self.norm               = norm
-        self.anchors            = [BoundBox(0, 0, anchors[2*i], anchors[2*i+1]) for i in range(len(anchors)//2)]
+        self.anchors            = [BoundBox(0, 0, anchors[2*i], anchors[2*i+1]) for i in range(len(anchors)//2)] # 9个BoundBox
         self.net_h              = 416  
         self.net_w              = 416
 
@@ -38,34 +38,53 @@ class BatchGenerator(Sequence):
     def __len__(self):
         return int(np.ceil(float(len(self.instances))/self.batch_size))           
 
+    """
+    每次构造一个batch的训练样本。Gets batch at position `index`.
+    input
+        index: position of the batch in the Sequence.
+    return
+        一个batch：[x_batch, t_batch, yolo_1, yolo_2, yolo_3], [dummy_yolo_1, dummy_yolo_2, dummy_yolo_3]
+        x_batch: 输入图像
+        t_batch: 输入图像中所有实际对象的bounding box
+        yolo_1,yolo_2,yolo_3: 标签y，分别是32、16、8倍下采样后期望输出的张量
+        dummy_yolo_1, dummy_yolo_2, dummy_yolo_3: dummy标签y，因为yolo_1,yolo_2,yolo_3输出了真实的标签y，所以这里返回的就是占位变量。
+    """
     def __getitem__(self, idx):
         # get image input size, change every 10 batches
+        # net_h, net_w 是输入图像的高宽，每10个batch随机变换一次
         net_h, net_w = self._get_net_size(idx)
+        # 32倍下采样的特征图的高宽
         base_grid_h, base_grid_w = net_h//self.downsample, net_w//self.downsample
 
         # determine the first and the last indices of the batch
         l_bound = idx*self.batch_size
         r_bound = (idx+1)*self.batch_size
 
+        # 这个感觉不是很合理
         if r_bound > len(self.instances):
             r_bound = len(self.instances)
             l_bound = r_bound - self.batch_size
 
+        # 准备样本，一个batch的输入图像
         x_batch = np.zeros((r_bound - l_bound, net_h, net_w, 3))             # input images
+        # 每个图像中的所有对象边框，shape=(batch,1,1,1,一个图像中最多几个对象,4个坐标)
         t_batch = np.zeros((r_bound - l_bound, 1, 1, 1,  self.max_box_per_image, 4))   # list of groundtruth boxes
 
-        # initialize the inputs and the outputs
+        # initialize the inputs and the outputs，分别对应32、16、8倍下采样的输出特征图
+        # [batch_size，特征图高，特征图宽，anchor数量3，边框坐标4+置信度1+预测对象类别数]
         yolo_1 = np.zeros((r_bound - l_bound, 1*base_grid_h,  1*base_grid_w, len(self.anchors)//3, 4+1+len(self.labels))) # desired network output 1
         yolo_2 = np.zeros((r_bound - l_bound, 2*base_grid_h,  2*base_grid_w, len(self.anchors)//3, 4+1+len(self.labels))) # desired network output 2
         yolo_3 = np.zeros((r_bound - l_bound, 4*base_grid_h,  4*base_grid_w, len(self.anchors)//3, 4+1+len(self.labels))) # desired network output 3
+
+        # 8、16、32倍下采样对应到先验框 [55,69, 75,234, 133,240,   136,129, 142,363, 203,290,   228,184, 285,359, 341,260]
         yolos = [yolo_3, yolo_2, yolo_1]
 
         dummy_yolo_1 = np.zeros((r_bound - l_bound, 1))
         dummy_yolo_2 = np.zeros((r_bound - l_bound, 1))
         dummy_yolo_3 = np.zeros((r_bound - l_bound, 1))
-        
-        instance_count = 0
-        true_box_index = 0
+
+        instance_count = 0  # batch中的第几张图像
+        true_box_index = 0  # 图像中的第几个对象
 
         # do the logic to fill in the inputs and the output
         for train_instance in self.instances[l_bound:r_bound]:
@@ -74,8 +93,8 @@ class BatchGenerator(Sequence):
             
             for obj in all_objs:
                 # find the best anchor box for this object
-                max_anchor = None                
-                max_index  = -1
+                max_anchor = None  # IOU最大的那个anchor
+                max_index  = -1     # IOU最大的那个anchor 的index
                 max_iou    = -1
 
                 shifted_box = BoundBox(0, 
@@ -93,18 +112,20 @@ class BatchGenerator(Sequence):
                         max_iou    = iou                
                 
                 # determine the yolo to be responsible for this bounding box
+                # 3种尺度的特征图，与当前对象最匹配的那种anchor，所属的那个特征图的tensor，就是这里的yolo
                 yolo = yolos[max_index//3]
                 grid_h, grid_w = yolo.shape[1:3]
                 
                 # determine the position of the bounding box on the grid
+                # 对象的边框中心坐标 被转换到 特征图网格上，其值相当于 期望预测的坐标 sigma(t_x) + c_x，sigma(t_y) + c_y
                 center_x = .5*(obj['xmin'] + obj['xmax'])
-                center_x = center_x / float(net_w) * grid_w # sigma(t_x) + c_x
+                center_x = center_x / float(net_w) * grid_w # 期望预测的坐标 sigma(t_x) + c_x = center_x
                 center_y = .5*(obj['ymin'] + obj['ymax'])
-                center_y = center_y / float(net_h) * grid_h # sigma(t_y) + c_y
+                center_y = center_y / float(net_h) * grid_h # 期望预测的坐标 sigma(t_y) + c_y = center_y
                 
                 # determine the sizes of the bounding box
-                w = np.log((obj['xmax'] - obj['xmin']) / float(max_anchor.xmax)) # t_w
-                h = np.log((obj['ymax'] - obj['ymin']) / float(max_anchor.ymax)) # t_h
+                w = np.log((obj['xmax'] - obj['xmin']) / float(max_anchor.xmax)) # t_w，注：truth_w = anchor_w * exp(t_w)
+                h = np.log((obj['ymax'] - obj['ymin']) / float(max_anchor.ymax)) # t_h，注：truth_h = anchor_h * exp(t_h)
 
                 box = [center_x, center_y, w, h]
 
@@ -116,15 +137,16 @@ class BatchGenerator(Sequence):
                 grid_y = int(np.floor(center_y))
 
                 # assign ground truth x, y, w, h, confidence and class probs to y_batch
+                # max_index%3 对应到最佳匹配的anchor，一个对象仅有一个anchor负责检测
                 yolo[instance_count, grid_y, grid_x, max_index%3]      = 0
-                yolo[instance_count, grid_y, grid_x, max_index%3, 0:4] = box
-                yolo[instance_count, grid_y, grid_x, max_index%3, 4  ] = 1.
-                yolo[instance_count, grid_y, grid_x, max_index%3, 5+obj_indx] = 1
+                yolo[instance_count, grid_y, grid_x, max_index%3, 0:4] = box      # 边框坐标
+                yolo[instance_count, grid_y, grid_x, max_index%3, 4  ] = 1.       # 边框置信度
+                yolo[instance_count, grid_y, grid_x, max_index%3, 5+obj_indx] = 1 # 对象分类
 
-                # assign the true box to t_batch
+                # assign the true box to t_batch. true_box的x、y是特征图上的坐标（比如13*13特征图），宽和高是原始图像上对象的宽和高
                 true_box = [center_x, center_y, obj['xmax'] - obj['xmin'], obj['ymax'] - obj['ymin']]
                 t_batch[instance_count, 0, 0, 0, true_box_index] = true_box
-
+                # 因为有 instance_count 区分不同的图像，true_box_index 应该只需在每次图像切换时 true_box_index=0 即可。这里在整个batch累加true_box_index，暂不确定是否有特别的用意。
                 true_box_index += 1
                 true_box_index  = true_box_index % self.max_box_per_image    
 

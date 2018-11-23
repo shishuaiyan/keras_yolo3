@@ -23,9 +23,28 @@ def create_training_instances(
     valid_annot_folder,
     valid_image_folder,
     valid_cache,
-    labels,
+    labels,  # config['model']['labels']，模型要求检测的对象，下面也叫“Given labels”
 ):
+    """
+    :return:
+     train_ints: 训练样本，其数据结构为
+                   [
+                      {
+                         "filename" : 图像文件路径+名称
+                         "width" : 图像宽
+                         "height" : 图像高
+                         "object" :  [ {"name":检测对象名称(string), "xmin":边框左上角x, "ymin":边框左上角y, "xmax":边框右下角x, "ymax":边框右下角y }, {}, ...... ]
+                       }
+                       ......
+                   ]
+     valid_ints: 验证样本
+     labels: 其实就是输入变量labels，也就是config['model']['labels']，比如["raccoon"]；如果没有指定，则返回样本图像中的所有对象。
+     max_box_per_image: 每张图像中最多有几个对象。是根据样本中的对象标注信息统计的来。
+    """
+
     # parse annotations of the training set
+    # train_labels = {"raccoon":217}
+    # train_labels 下面也叫 Seen labels，是样本图像中标记出来的对象。
     train_ints, train_labels = parse_voc_annotation(train_annot_folder, train_image_folder, train_cache, labels)
 
     # parse annotations of the validation set, if any, otherwise split the training set
@@ -46,6 +65,7 @@ def create_training_instances(
     if len(labels) > 0:
         overlap_labels = set(labels).intersection(set(train_labels.keys()))
 
+        # seen labels 是样本图像中标记出来的图像，given labels 是要求模型（config.json）检测的对象
         print('Seen labels: \t'  + str(train_labels) + '\n')
         print('Given labels: \t' + str(labels))
 
@@ -241,6 +261,11 @@ def _main_(args):
         xywh_scale          = config['train']['xywh_scale'],
         class_scale         = config['train']['class_scale'],
     )
+
+    # model结构输出到图片文件
+    # from keras.utils.vis_utils import plot_model
+    # plot_model(train_model, to_file='train_model.png', show_shapes=True, show_layer_names=True)
+    # plot_model(infer_model, to_file='infer_model.png', show_shapes=True, show_layer_names=True)
 
     ###############################
     #   Kick off the training
