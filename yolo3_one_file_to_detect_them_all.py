@@ -263,10 +263,10 @@ def preprocess_input(image, net_h, net_w):
 
     # determine the new size of the image
     if (float(net_w)/new_w) < (float(net_h)/new_h):
-        new_h = (new_h * net_w)/new_w
+        new_h = int((new_h * net_w)/new_w)
         new_w = net_w
     else:
-        new_w = (new_w * net_h)/new_h
+        new_w = int((new_w * net_h)/new_h)
         new_h = net_h
 
     # resize the image to the new size
@@ -274,7 +274,7 @@ def preprocess_input(image, net_h, net_w):
 
     # embed the image into the standard letter box
     new_image = np.ones((net_h, net_w, 3)) * 0.5
-    new_image[int((net_h-new_h)//2):int((net_h+new_h)//2), int((net_w-new_w)//2):int((net_w+new_w)//2), :] = resized
+    new_image[int((net_h-new_h)/2):int((net_h+new_h)/2), int((net_w-new_w)/2):int((net_w+new_w)/2), :] = resized
     new_image = np.expand_dims(new_image, 0)
 
     return new_image
