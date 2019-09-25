@@ -84,8 +84,11 @@ The configuration file is a json file, which looks like this:
 The ```labels``` setting lists the labels to be trained on. Only images, which has labels being listed, are fed to the network. The rest images are simply ignored. By this way, a Dog Detector can easily be trained using VOC or COCO dataset by setting ```labels``` to ```['dog']```.
 
 Download pretrained weights for backend at:
-
+> 已失效：
 https://1drv.ms/u/s!ApLdDEW3ut5fgQXa7GzSlG-mdza6
+
+> from issue:
+[https://s3-ap-southeast-1.amazonaws.com/deeplearning-mat/backend.h5](https://s3-ap-southeast-1.amazonaws.com/deeplearning-mat/backend.h5)
 
 **This weights must be put in the root folder of the repository. They are the pretrained weights for the backend only and will be loaded during model creation. The code does not work without this weights.**
 

@@ -7,7 +7,7 @@ from keras.models import Model
 import struct
 import cv2
 
-np.set_printoptions(threshold=np.nan)
+np.set_printoptions(threshold=np.inf)   # 设置打印时显示方式,threshold=np.inf(无穷大)意思是输出数组的时候完全输出，不需要省略号将中间数据省略
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
@@ -17,11 +17,13 @@ argparser = argparse.ArgumentParser(
 argparser.add_argument(
     '-w',
     '--weights',
+    type=str, default='yolov3.weights',
     help='path to weights file')
 
 argparser.add_argument(
     '-i',
     '--image',
+    type=str, default='dog.jpg',
     help='path to image file')
 
 class WeightReader:
