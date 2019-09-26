@@ -1,9 +1,13 @@
 from keras.layers import Conv2D, Input, BatchNormalization, LeakyReLU, ZeroPadding2D, UpSampling2D, Lambda
 from keras.layers.merge import add, concatenate
 from keras.models import Model
-from keras.engine.topology import Layer
+from keras.engine.topology import Layer     # 等价于keras.layers.Layer
 import tensorflow as tf
 
+# 继承keras.layers.Layer实现自定义层，常用的有三个方法：
+# __init__, 在这里初始化与层输入无关的变量，这里创建的张量要明确指定形状
+# build, 在这里定义该层的权重(张量)；且该层有input_shape参数，表示从上一层输入张量的shape
+# call，在这里进行正向传播，该层有一个input参数，tensor, list/tuple of tensors, 表示上一层输入的张量或张量列表
 class YoloLayer(Layer):
     def __init__(self, anchors, max_grid, batch_size, warmup_batches, ignore_thresh, 
                     grid_scale, obj_scale, noobj_scale, xywh_scale, class_scale, 
