@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+# 配合博客理解观看：https://www.jianshu.com/p/d13ae1055302
 import argparse
 import os
 import numpy as np
@@ -299,7 +300,8 @@ def _main_(args):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='train and evaluate YOLO_v3 model on any dataset')
-    argparser.add_argument('-c', '--conf', help='path to configuration file')   
+    argparser.add_argument('-c', '--conf', default="zoo/config_raccoon.json",
+                           help='path to configuration file')
 
     args = argparser.parse_args()
     _main_(args)

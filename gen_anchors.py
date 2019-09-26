@@ -99,18 +99,22 @@ def _main_(argv):
     )
 
     # run k_mean to find the anchors
+    # 输入数据为归一化后的宽高：[w, h]标注框的宽高分别除以当前原图的宽高
     annotation_dims = []
     for image in train_imgs:
         print(image['filename'])
         for obj in image['object']:
+            # 打标框的右下角坐标：(obj['xmax'], obj['ymax']); # 打标框的左上角坐标：(obj['xmin'], obj['ymin'])
+            # 原图的宽度：image['width'], 原图的高度：image['height']
             relative_w = (float(obj['xmax']) - float(obj['xmin']))/image['width']
             relatice_h = (float(obj["ymax"]) - float(obj['ymin']))/image['height']
             annotation_dims.append(tuple(map(float, (relative_w,relatice_h))))
 
+    # 使用kmeans直接聚类出9个不同的宽高比，根据宽度从小到大排序并依次乘以标准图片输入尺度416，得到9个从小到大排列的anchors
+    # 其中前三个较小的先验框(anchors)用在较大的52*52特征图上来检测小目标，中等的三个anchors用在26*26特征图检测中等目标，最大的三个anchors用在13*13特征图检测大目标
     annotation_dims = np.array(annotation_dims)
     centroids = run_kmeans(annotation_dims, num_anchors)
-
-    # write anchors to file
+    # print anchors to terminal
     print('\naverage IOU for', num_anchors, 'anchors:', '%0.2f' % avg_IOU(annotation_dims, centroids))
     print_anchors(centroids)
 
@@ -120,7 +124,7 @@ if __name__ == '__main__':
     argparser.add_argument(
         '-c',
         '--conf',
-        default='config.json',
+        default='zoo/config_raccoon.json',
         help='path to configuration file')
     argparser.add_argument(
         '-a',

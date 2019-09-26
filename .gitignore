@@ -3,3 +3,6 @@
 *.weights
 *.h5
 .idea
+*.pkl
+log_*
+__pycache__
