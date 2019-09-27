@@ -6,3 +6,5 @@
 *.pkl
 log_*
 __pycache__
+dataset/
+temp.py

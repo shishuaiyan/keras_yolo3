@@ -243,19 +243,21 @@ class YoloLayer(Layer):
         return [(None, 1)]
 
 def _conv_block(inp, convs, do_skip=True):
+    # 这里定义的是一个块(一个_covn_block内最后两层是一个残差块)
+    # inp: 输入tensor； convs: 卷积参数； do_skip: True=残差块,False=非残差块
     x = inp
     count = 0
     
     for conv in convs:
-
         # 如果使用残差结构，需要找到第 -2 层，暂存为skip_connection变量，后面再 add 到卷积后的输出层
         if count == (len(convs) - 2) and do_skip:
             skip_connection = x
         count += 1
-        
+        # YOLO3使用步幅为2的卷积操作来替代池化层，这里在输入矩阵的左边有上边各pad一层，确保stride=2，且kernel_size=3时输出矩阵的宽高=输入矩阵宽高/2
+        # ((top_pad, bottom_pad), (left_pad, right_pad))
         if conv['stride'] > 1: x = ZeroPadding2D(((1,0),(1,0)))(x) # unlike tensorflow darknet prefer left and top paddings
-        x = Conv2D(conv['filter'], 
-                   conv['kernel'], 
+        x = Conv2D(conv['filter'],  # filters number
+                   conv['kernel'],  # kernel size
                    strides=conv['stride'], 
                    padding='valid' if conv['stride'] > 1 else 'same', # unlike tensorflow darknet prefer left and top paddings
                    name='conv_' + str(conv['layer_idx']), 
