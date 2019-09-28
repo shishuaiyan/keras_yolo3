@@ -172,7 +172,7 @@ def create_model(
         print("\nLoading pretrained weights.\n")
         template_model.load_weights(saved_weights_name)
     else:
-        template_model.load_weights("backend.h5", by_name=True)       
+        template_model.load_weights("backend.h5", by_name=True)       # 加载预训练模型
 
     if multi_gpu > 1:
         train_model = multi_gpu_model(template_model, gpus=multi_gpu)
@@ -300,7 +300,9 @@ def _main_(args):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='train and evaluate YOLO_v3 model on any dataset')
-    argparser.add_argument('-c', '--conf', default="zoo/config_raccoon.json",
+    argparser.add_argument('-c', '--conf',
+                           # default="zoo/config_raccoon.json",     # 办公室电脑对应目录
+                           default="zoo/config_raccoon_dell.json",  # 家中电脑
                            help='path to configuration file')
 
     args = argparser.parse_args()

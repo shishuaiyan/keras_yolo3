@@ -45,7 +45,7 @@ There is a one-to-one correspondence by file name between images and annotations
 ### 2. Edit the configuration file
 The configuration file is a json file, which looks like this:
 
-```python
+```
 {
     "model" : {
         "min_input_size":       352,
@@ -90,6 +90,10 @@ https://1drv.ms/u/s!ApLdDEW3ut5fgQXa7GzSlG-mdza6
 > from issue:
 [https://s3-ap-southeast-1.amazonaws.com/deeplearning-mat/backend.h5](https://s3-ap-southeast-1.amazonaws.com/deeplearning-mat/backend.h5)
 
+> from pan.baidu:  
+链接：https://pan.baidu.com/s/1Ll4ibb8uNQwXCAQN1liSxA   
+提取码：dddi 
+
 **This weights must be put in the root folder of the repository. They are the pretrained weights for the backend only and will be loaded during model creation. The code does not work without this weights.**
 
 ### 3. Generate anchors for your dataset (optional)
@@ -114,3 +118,14 @@ It carries out detection on the image and write the image with detected bounding
 `python evaluate.py -c config.json`
 
 Compute the mAP performance of the model defined in `saved_weights_name` on the validation dataset defined in `valid_image_folder` and `valid_annot_folder`.
+
+
+# YOLOV3解读
+> reference: 
+- [深入解读](https://www.jianshu.com/p/d13ae1055302)
+- [网络结构分析](https://blog.csdn.net/qq_37541097/article/details/81214953)
+
+## 模型结构
+![](struct_of_yolo3.jpg)  
+在上图中我们能够很清晰的看到三个预测层分别来自的什么地方，以及Concatenate层与哪个层进行拼接。注意Convolutional是指Conv2d+BN+LeakyReLU，和Darknet53图中的一样，而生成预测结果的最后三层都只是Conv2d。通过上图小伙伴们就能更加容易地搭建出YOLOv3的网络框架了。  
+
